@@ -1,0 +1,5 @@
+# .gitignore
+/
+!.git
+!.gitignore
+!kihon_kadai.c
