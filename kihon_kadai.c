@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 	IplImage** framesPT[] = {&framePT, &framePTHSV};
 	contourInfo topContoursInfo[CONTOURS];
 	int i, key, state = SEARCHING_FOR_MARKER; // state: 状態を表す変数
-	float *p;
+	float *p = NULL;
 	int colors[RGB] = {R, G, B}, ci = 0; //ここで倒す順番の指定をする
 
 	init();
@@ -89,23 +89,23 @@ int main(int argc, char **argv)
 	camera_vertical(CAMERA_INIT_V); // 垂直方向のカメラ角度を初期値に
 
 	////////////////////////////////////////////////////////////////////////////////
-    // 各色のHSV色．各自チューニングすること
-    colorHSV rgb_HSV[RGB];
-    //R
-    rgb_HSV[R].minH = 110,rgb_HSV[R].maxH = 140;
-    rgb_HSV[R].minS = 100,rgb_HSV[R].maxS = 230;
-    rgb_HSV[R].minV = 100,rgb_HSV[R].maxV = 255;
-    //G
-    rgb_HSV[G].minH = 30,rgb_HSV[G].maxH = 50;
-    rgb_HSV[G].minS = 70,rgb_HSV[G].maxS = 200;
-    rgb_HSV[G].minV = 50,rgb_HSV[G].maxV = 255;
-    //B
-    rgb_HSV[B].minH = 0,rgb_HSV[B].maxH = 20;
-    rgb_HSV[B].minS = 70,rgb_HSV[B].maxS = 220;
-    rgb_HSV[B].minV = 50,rgb_HSV[B].maxV = 255;
+	// 各色のHSV色．各自チューニングすること
+	colorHSV rgb_HSV[RGB];
+	//R
+	rgb_HSV[R].minH = 110, rgb_HSV[R].maxH = 140;
+	rgb_HSV[R].minS = 100, rgb_HSV[R].maxS = 230;
+	rgb_HSV[R].minV = 100, rgb_HSV[R].maxV = 255;
+	//G
+	rgb_HSV[G].minH = 30, rgb_HSV[G].maxH = 50;
+	rgb_HSV[G].minS = 70, rgb_HSV[G].maxS = 200;
+	rgb_HSV[G].minV = 50, rgb_HSV[G].maxV = 255;
+	//B
+	rgb_HSV[B].minH = 0, rgb_HSV[B].maxH = 20;
+	rgb_HSV[B].minS = 70, rgb_HSV[B].maxS = 220;
+	rgb_HSV[B].minV = 50, rgb_HSV[B].maxV = 255;
 
-    ////////////////////////////////////////////////////////////////////////////////
-    /*
+	////////////////////////////////////////////////////////////////////////////////
+	/*
 	// 青系のHSV色．各自チューニングすること
 	uchar minH = 0, maxH = 20;
 	uchar minS = 70, maxS = 220;
@@ -186,11 +186,11 @@ int main(int argc, char **argv)
 		cvShowImage("dst", framePT);
 
 		////////////////////////////////////////////////////////////////////////////////
-        // 指定した色空間内の色(赤、青、緑)のみマスクする
-        // GetMaskHSV(framePT, mask, minH, maxH, minS, maxS, minV, maxV);
-        // color = B; //ここでRGBの指定ができるようにした
-        GetMaskHSV(framePT, mask, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
-        ////////////////////////////////////////////////////////////////////////////////
+		// 指定した色空間内の色(赤、青、緑)のみマスクする
+		// GetMaskHSV(framePT, mask, minH, maxH, minS, maxS, minV, maxV);
+		// color = B; //ここでRGBの指定ができるようにした
+		GetMaskHSV(framePT, mask, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
+		////////////////////////////////////////////////////////////////////////////////
 
 		GetLargestContour(framePT, mask, contour, topContoursInfo);
 		cvShowImage("contour", contour);
@@ -282,10 +282,10 @@ int main(int argc, char **argv)
 			state = AIMING_TARGET;
 			break;
 		case AIMING_TARGET: // 的の狙いをしぼる
-			x = cvRound (p[0]);                 // 認識した物体の画面内のx座標(0~319)
-			y = cvRound (p[1]);                 // 認識した物体の画面内のy座標(0~239)
-			if (x < 155) motor(138, 118);         // 長方形が左にあるとき左に回転
-			else if (x > 165) motor(118, 138);    // 長方形が右にあるとき右に回転
+			x = cvRound(p[0]);
+			y = cvRound(p[1]);
+			if (x < 155) motor(138, 118);      // 長方形が左にあるとき左に回転
+			else if (x > 165) motor(118, 138); // 長方形が右にあるとき右に回転
 			else //おおよそ正面にとらえた時
 				state = FORWARD_STATE3;
 			break;
@@ -327,6 +327,7 @@ double calcDistanceLB(double LA, double deg, int Case) {
 	} else if (Case == CASE_3) { //長方形が左下-右上状態の場合
 		return LA * sin(rad);
 	}
+	return 0; // その他の場合は0を返す
 }
 
 //指定した距離[cm]だけロボットを動かす関数
