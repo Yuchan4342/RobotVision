@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 	contourInfo topContoursInfo[CONTOURS];
 	int i, key, state = SEARCHING_FOR_MARKER; // state: 状態を表す変数
 	float *p;
-	int colors[RGB] = {R, G, B}, ci; //ここで倒す順番の指定をする
+	int colors[RGB] = {R, G, B}, ci = 0; //ここで倒す順番の指定をする
 
 	init();
 
