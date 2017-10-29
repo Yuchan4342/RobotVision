@@ -77,6 +77,7 @@ int main(int argc, char **argv)
 	contourInfo topContoursInfo[CONTOURS];
 	int i, key, state = SEARCHING_FOR_MARKER; // state: 状態を表す変数
 	float *p;
+	int colors[RGB] = {R, G, B}, ci; //ここで倒す順番の指定をする
 
 	init();
 
@@ -102,19 +103,14 @@ int main(int argc, char **argv)
     rgb_HSV[B].minH = 0,rgb_HSV[B].maxH = 20;
     rgb_HSV[B].minS = 70,rgb_HSV[B].maxS = 220;
     rgb_HSV[B].minV = 50,rgb_HSV[B].maxV = 255;
-    
-    /*
-    // 青系のHSV色．各自チューニングすること
-    uchar minH = 0, maxH = 20;
-    uchar minS = 70, maxS = 220;
-    uchar minV =  50, maxV = 255;
-    */
+
     ////////////////////////////////////////////////////////////////////////////////
-    
+    /*
 	// 青系のHSV色．各自チューニングすること
 	uchar minH = 0, maxH = 20;
 	uchar minS = 70, maxS = 220;
 	uchar minV =  50, maxV = 255;
+	*/
 	CvMat *map_matrix;
 	CvPoint2D32f src_pnt[4], dst_pnt[4];
 
@@ -191,9 +187,9 @@ int main(int argc, char **argv)
 
 		////////////////////////////////////////////////////////////////////////////////
         // 指定した色空間内の色(赤、青、緑)のみマスクする
-        GetMaskHSV(framePT, mask, minH, maxH, minS, maxS, minV, maxV);
-        int color = B; //ここでRGBの指定ができるようにした
-        // GetMaskHSV(framePT, mask, rgb_HSV[color].minH, rgb_HSV[color].maxH, rgb_HSV[color].minS, rgb_HSV[color].maxS, rgb_HSV[color].minV, rgb_HSV[color].maxV);
+        // GetMaskHSV(framePT, mask, minH, maxH, minS, maxS, minV, maxV);
+        // color = B; //ここでRGBの指定ができるようにした
+        GetMaskHSV(framePT, mask, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
         ////////////////////////////////////////////////////////////////////////////////
 
 		GetLargestContour(framePT, mask, contour, topContoursInfo);
@@ -229,10 +225,10 @@ int main(int argc, char **argv)
 			angle = oblique.angle;
 			y = oblique.center.y;                 // 認識した物体の画面内のy座標(0~269)
 			Case = judgeCase(topContoursInfo);
-			LA = calcDistanceA(y); //距離Aを計算
+			LA = calcDistanceLA(y); //距離Aを計算
 			switch (Case) {
 			case CASE_1: //左上-右下
-				LB = calcDistanceB(LA, angle, Case); //距離Bを計算
+				LB = calcDistanceLB(LA, angle, Case); //距離Bを計算
 				theta = angle;//回転する角度を計算
 				break;
 			case CASE_2: //真正面
@@ -240,7 +236,7 @@ int main(int argc, char **argv)
 				theta = 0;
 				break;
 			case CASE_3: //左下-右上
-				LB = calcDistanceB(LA, angle, Case); //距離Bを計算
+				LB = calcDistanceLB(LA, angle, Case); //距離Bを計算
 				theta = 90 - abs(angle);//回転する角度を計算
 				break;
 			case CASE_4: //真横
@@ -281,7 +277,7 @@ int main(int argc, char **argv)
 			oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
 			x = oblique.center.x;   // 認識した物体の画面内のx座標(0~239)
 			y = oblique.center.y;   // 認識した物体の画面内のy座標(0~269)
-			LA = calcDistanceA(y);	// 距離Aを計算
+			LA = calcDistanceLA(y);	// 距離Aを計算
 			move(LA - 15);
 			state = AIMING_TARGET;
 			break;
@@ -299,6 +295,8 @@ int main(int argc, char **argv)
 			break;
 		case END_STATE:
 			motor_stop(); // 停止
+			ci++;
+			if (ci < RGB) state = SEARCHING_FOR_MARKER;
 			break;
 		}
 		////
