@@ -4,6 +4,7 @@
 #include <highgui.h>
 #include <math.h>
 #include <curses.h>
+#include <time.h>
 #include "get_contour.h"
 
 #define PORT "/dev/tty.usbmodem1A1231" //適宜変更のこと
@@ -16,12 +17,14 @@
 #define CAMERA_INIT_V 62    //カメラサーボの垂直方向初期値
 #define CAMERA_INIT_H 91    //カメラサーボの水平方向初期値
 
-#define PER_SECOND 16.04   //motor(100,100)による秒速
+#define PER_SECOND 16.04   // motor(100,100)による秒速
 #define ANG_V 55.05        // motor(100,156)のときの角速度(単位 °/sec)
 
 #define CM_PER_PXS_Y 0.385     //1pxsあたりの実際の距離[cm]：y方向
 #define CM_PER_PXS_X 0.444     //1pxsあたりの実際の距離[cm]：x方向
 #define DIST_OUT_OF_RANGE 40.5 //カメラ範囲外からロボットまでの距離[cm]
+#define PUSH_DOWN_TARGET 15    //的を倒す時に前進する距離[cm]
+#define THRESHOULD_CIRCLES 10  //的が倒れたかどうかを判定する時に使う、円の個数の閾値
 
 #define SEARCHING_FOR_MARKER 0    // 探している時
 #define FOUND_MARKER 1 	          // 探している時
@@ -31,7 +34,7 @@
 #define FORWARD_STATE2 5          // 前進その2
 #define AIMING_TARGET 6           // 的に狙いをしぼる
 #define FORWARD_STATE3 7          // 前進その3
-#define RETREAT_CONFIRMATION  8 // 後退・確認
+#define CONFIRMATION_STATE  8 // 後退・確認
 #define END_STATE 9               // 目標の真上に到達したとき
 
 #define CASE_1 1 //長方形の状態が「左上-右下」の場合
@@ -62,7 +65,7 @@ void on_mouse(int event, int x, int y, int flags, void *param);
 
 int main(int argc, char **argv)
 {
-    CvCapture *capture = NULL; // カメラキャプチャ用の構造体
+	CvCapture *capture = NULL; // カメラキャプチャ用の構造体
 	IplImage *frame;      // キャプチャ画像 (RGB)
 	IplImage *frameHSV;   // キャプチャ画像 (HSV)
 	IplImage* framePT;    // 透視変換画像 (RGB)
@@ -79,6 +82,7 @@ int main(int argc, char **argv)
 	int i, key, state = SEARCHING_FOR_MARKER; // state: 状態を表す変数
 	float *p = NULL;
 	int colors[RGB] = {R, G, B}, ci = 0; //ここで倒す順番の指定をする
+	time_t t_start = -1, t_stop = -1;
 
 	init();
 
@@ -130,7 +134,7 @@ int main(int argc, char **argv)
 	if (argc == 1 || (argc == 2 && strlen(argv[1]) == 1 && isdigit(argv[1][0])))
 		capture = cvCaptureFromCAM(argc == 2 ? argv[1][0] - '0' : -1);
 	if (capture == NULL) {
-        printf("not find camera\n");
+		printf("not find camera\n");
 		return -1;
 	}
 	// 解析速度向上のために画像サイズを下げる
@@ -157,7 +161,7 @@ int main(int argc, char **argv)
 
 	while (1) {
 		// カメラからの入力画像1フレームをframeに格納
-        frame = cvQueryFrame(capture);
+		frame = cvQueryFrame(capture);
 		cvCvtColor(frame, frameHSV, CV_RGB2HSV);
 		cvCvtColor(frame, frameGray, CV_RGB2GRAY);
 
@@ -171,7 +175,7 @@ int main(int argc, char **argv)
 		                          MAX (frameGray->width, frameGray->height)); //円の検出
 		for (i = 0; i < MIN (3, circles->total); i++) {
 			p = (float *) cvGetSeqElem (circles, i);
-            cvCircle (frame, cvPoint (cvRound (p[0]), cvRound (p[1])),
+			cvCircle (frame, cvPoint (cvRound (p[0]), cvRound (p[1])),
 			          3, CV_RGB (0, 255, 0), -1, 8, 0); //円の描画
 			cvCircle (frame, cvPoint (cvRound (p[0]), cvRound (p[1])),
 			          cvRound (p[2]), CV_RGB (255, 0, 0), 6 - 2 * i, 8, 0); //円の描画
@@ -205,11 +209,21 @@ int main(int argc, char **argv)
 		case SEARCHING_FOR_MARKER: // マーカーを探しているとき
 			if (topContoursInfo[0].area > 600) // マーカーが見つかった場合(長方形のサイズ850~920)
 			{
-				motor(128, 128); // 回転停止
+				motor_stop(); // 回転停止
+				t_start = -1;
+				t_stop = -1;
 				state = FOUND_MARKER;
 			}
-			else { // マーカーが見つからない場合
-				motor(100, 156); // 右(時計)周りに回転
+			else // マーカーが見つからない場合
+			{
+				if (t_start == -1) time(&t_start);
+				if ((t_stop = time(NULL)) - t_start < 7)
+					motor(100, 156); // 右(時計)周りに回転
+				else // 1周回ってマーカーが見つからない場合
+				{
+					move(80); // 80cm前進
+					t_start = -1;
+				}
 			}
 			break;
 		case FOUND_MARKER: // マーカーが画面内に入ったとき, 正面(カメラの中央)に入るように向きを変える
@@ -276,7 +290,7 @@ int main(int argc, char **argv)
 			break;
 		case FORWARD_STATE2: // 前進その2
 			oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
-			x = oblique.center.x;   // 認識した物体の画面内のx座標(0~239)
+			// x = oblique.center.x;   // 認識した物体の画面内のx座標(0~239)
 			y = oblique.center.y;   // 認識した物体の画面内のy座標(0~269)
 			LA = calcDistanceLA(y);	// 距離Aを計算
 			move(LA - 15);
@@ -291,17 +305,18 @@ int main(int argc, char **argv)
 				state = FORWARD_STATE3;
 			break;
 		case FORWARD_STATE3: // 前進その3
-			move(15);
-			state = RETREAT_CONFIRMATION;
-            motor_stop(); // 停止
+			move(PUSH_DOWN_TARGET);
+			state = CONFIRMATION_STATE;
+			motor_stop(); // 停止
+			move(-PUSH_DOWN_TARGET); //前進したぶん後退
 			break;
-        case RETREAT_CONFIRMATION: // 後退・確認
-            move(-15); //FORWARD_STATE3で前進したぶん後退
-                
-                // マトを倒したかの判定を入れる
-                
-            state = END_STATE;
-            break;
+		case CONFIRMATION_STATE: // 後退・確認
+			if (circles->total < THRESHOULD_CIRCLES) {  // 的を倒したかの判定
+				state = END_STATE; //的を倒せた場合はEND_STATEへ
+			} else {
+				state = AIMING_TARGET; //倒せなかった場合は再度的をしぼるところからやり直し
+			}
+			break;
 		case END_STATE:
 			motor_stop(); // 停止
 			ci++;
@@ -342,8 +357,8 @@ double calcDistanceLB(double LA, double deg, int Case) {
 //指定した距離[cm]だけロボットを動かす関数（正の値なら前進、負の値なら後退）
 void move(double distance) {
 	double move_time = distance / PER_SECOND * 1000000;//移動時間[us]の計算
-    if(distance >= 0) motor(100, 100); //基本速度で前進
-    else motor(156,156); //基本速度で後退
+	if (distance >= 0) motor(100, 100); //基本速度で前進
+	else motor(156, 156); //基本速度で後退
 	usleep(move_time);//計算した移動時間分だけスリープ
 	motor_stop(); //停止
 }
