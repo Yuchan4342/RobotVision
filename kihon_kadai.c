@@ -17,11 +17,11 @@
 #define CAMERA_INIT_V 62    //カメラサーボの垂直方向初期値
 #define CAMERA_INIT_H 91    //カメラサーボの水平方向初期値
 
-#define PER_SECOND 16.04   // motor(100,100)による秒速
-#define ANG_V 55.05        // motor(100,156)のときの角速度(単位 °/sec)
+#define PER_SECOND 16.04   // motor(100,100)による秒速 [cm/sec]
+#define ANG_V 55.05        // motor(100,156)のときの角速度 [°/sec]
 
-#define CM_PER_PXS_Y 0.385     //1pxsあたりの実際の距離[cm]：y方向
-#define CM_PER_PXS_X 0.444     //1pxsあたりの実際の距離[cm]：x方向
+#define CM_PER_PXS_Y 0.385     //1pxsあたりの実際の距離[cm/pxs]：y方向
+#define CM_PER_PXS_X 0.444     //1pxsあたりの実際の距離[cm/pxs]：x方向
 #define DIST_OUT_OF_RANGE 40.5 //カメラ範囲外からロボットまでの距離[cm]
 #define PUSH_DOWN_TARGET 15    //的を倒す時に前進する距離[cm]
 #define THRESHOULD_CIRCLES 10  //的が倒れたかどうかを判定する時に使う、円の個数の閾値
@@ -34,7 +34,7 @@
 #define FORWARD_STATE2 5          // 前進その2
 #define AIMING_TARGET 6           // 的に狙いをしぼる
 #define FORWARD_STATE3 7          // 前進その3
-#define CONFIRMATION_STATE  8 // 後退・確認
+#define CONFIRMATION_STATE  8     // 後退・確認
 #define END_STATE 9               // 目標の真上に到達したとき
 
 #define CASE_1 1 //長方形の状態が「左上-右下」の場合
@@ -50,9 +50,9 @@
 
 //各色HSVの最大・最小を要素とする構造体
 typedef struct colorHSV {
-	uchar minH, maxH;//色相 H の最小・最大
-	uchar minS, maxS;//鮮やかさ S の最小・最大
-	uchar minV, maxV;//明度 V の最小・最大
+	uchar minH, maxH; //色相 H の最小・最大
+	uchar minS, maxS; //鮮やかさ S の最小・最大
+	uchar minV, maxV; //明度 V の最小・最大
 } colorHSV;
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -65,11 +65,11 @@ void on_mouse(int event, int x, int y, int flags, void *param);
 
 int main(int argc, char **argv)
 {
-	CvCapture *capture = NULL; // カメラキャプチャ用の構造体
-	IplImage *frame;      // キャプチャ画像 (RGB)
-	IplImage *frameHSV;   // キャプチャ画像 (HSV)
-	IplImage* framePT;    // 透視変換画像 (RGB)
-	IplImage* framePTHSV; // 透視変換画像 (HSV)
+	CvCapture *capture = NULL;  // カメラキャプチャ用の構造体
+	IplImage *frame;            // キャプチャ画像 (RGB)
+	IplImage *frameHSV;         // キャプチャ画像 (HSV)
+	IplImage* framePT;          // 透視変換画像 (RGB)
+	IplImage* framePTHSV;       // 透視変換画像 (HSV)
 	IplImage* frameGray = NULL; // キャプチャ画像 (グレー) Hough変換用
 	CvMemStorage *storage;
 	CvSeq *circles = NULL;
@@ -87,11 +87,11 @@ int main(int argc, char **argv)
 	init();
 
 	// 実習項目5.0で計測したモーターの中央値をmotor_onに、サーボの中央値をcamera_onにそれぞれセットする
-	motor_on(MOTOR_DEFAULT_L, MOTOR_DEFAULT_R); // モーター静止パルス幅のキャリブレーション
-	camera_on(CAMERA_CENTER_V, CAMERA_CENTER_H);   // カメラアングルキャリブレーション
+	motor_on(MOTOR_DEFAULT_L, MOTOR_DEFAULT_R);     // モーター静止パルス幅のキャリブレーション
+	camera_on(CAMERA_CENTER_V, CAMERA_CENTER_H);    // カメラアングルキャリブレーション
 
-	camera_horizontal(CAMERA_INIT_H); // 水平方向のカメラ角度を初期値に
-	camera_vertical(CAMERA_INIT_V); // 垂直方向のカメラ角度を初期値に
+	camera_horizontal(CAMERA_INIT_H);   // 水平方向のカメラ角度を初期値に
+	camera_vertical(CAMERA_INIT_V);     // 垂直方向のカメラ角度を初期値に
 
 	////////////////////////////////////////////////////////////////////////////////
 	// 各色のHSV色．各自チューニングすること
@@ -172,14 +172,14 @@ int main(int argc, char **argv)
 		// Hough変換による円の検出と検出した円の描画
 		circles = cvHoughCircles (frameGray, storage, CV_HOUGH_GRADIENT,
 		                          1, 3.0, 20.0, 70.0, 10,
-		                          MAX (frameGray->width, frameGray->height)); //円の検出
+		                          MAX (frameGray->width, frameGray->height));   //円の検出
 		for (i = 0; i < MIN (3, circles->total); i++) {
 			p = (float *) cvGetSeqElem (circles, i);
 			cvCircle (frame, cvPoint (cvRound (p[0]), cvRound (p[1])),
-			          3, CV_RGB (0, 255, 0), -1, 8, 0); //円の描画
+			          3, CV_RGB (0, 255, 0), -1, 8, 0);                         //円の描画
 			cvCircle (frame, cvPoint (cvRound (p[0]), cvRound (p[1])),
-			          cvRound (p[2]), CV_RGB (255, 0, 0), 6 - 2 * i, 8, 0); //円の描画
-			printf("( x , y ) : ( %d , %d )\n", cvRound (p[0]), cvRound (p[1])); //検出した円の中心座標(x,y)を表示
+			          cvRound (p[2]), CV_RGB (255, 0, 0), 6 - 2 * i, 8, 0);     //円の描画
+			// printf("( x , y ) : ( %d , %d )\n", cvRound (p[0]), cvRound (p[1])); //検出した円の中心座標(x,y)を表示
 		}
 
 		// 透視変換
@@ -218,29 +218,29 @@ int main(int argc, char **argv)
 			{
 				if (t_start == -1) time(&t_start);
 				if ((t_stop = time(NULL)) - t_start < 7)
-					motor(100, 156); // 右(時計)周りに回転
+					motor(100, 156);    // 右(時計)周りに回転
 				else // 1周回ってマーカーが見つからない場合
 				{
-					move(80); // 80cm前進
+					move(80);           // 80cm前進
 					t_start = -1;
 				}
 			}
 			break;
 		case FOUND_MARKER: // マーカーが画面内に入ったとき, 正面(カメラの中央)に入るように向きを変える
-			oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
-			x = oblique.center.x;                 // 認識した物体の画面内のx座標(0~239)
-			y = oblique.center.y;                 // 認識した物体の画面内のy座標(0~269)
-			if (x < 110) motor(138, 118);         // 長方形が左にあるとき左に回転
-			else if (x > 130) motor(118, 138);    // 長方形が右にあるとき右に回転
-			else //おおよそ正面にとらえた時
+			oblique = topContoursInfo[0].oblique;   // 認識した物体を囲む長方形
+			x = oblique.center.x;                   // 認識した物体の画面内のx座標(0~239)
+			y = oblique.center.y;                   // 認識した物体の画面内のy座標(0~269)
+			if (x < 110) motor(138, 118);           // 長方形が左にあるとき左に回転
+			else if (x > 130) motor(118, 138);      // 長方形が右にあるとき右に回転
+			else                                    //おおよそ正面にとらえた時
 				state = ROTATE_STATE1;
 			break;
 		case ROTATE_STATE1: // 条件に応じて回転
-			oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
+			oblique = topContoursInfo[0].oblique;   // 認識した物体を囲む長方形
 			angle = oblique.angle;
-			y = oblique.center.y;                 // 認識した物体の画面内のy座標(0~269)
-			Case = judgeCase(topContoursInfo);    // マーカーの状態を判定する
-			LA = calcDistanceLA(y); //距離LAを計算
+			y = oblique.center.y;                   // 認識した物体の画面内のy座標(0~269)
+			Case = judgeCase(topContoursInfo);      // マーカーの状態を判定する
+			LA = calcDistanceLA(y);                 //距離LAを計算
 			switch (Case) {
 			case CASE_1: //左上-右下
 				LB = calcDistanceLB(LA, angle, Case); //距離LBを計算
@@ -251,13 +251,13 @@ int main(int argc, char **argv)
 				theta = 0;
 				break;
 			case CASE_3: //左下-右上
-				LB = calcDistanceLB(LA, angle, Case); //距離LBを計算
-				theta = 90 - abs(angle);//回転する角度を計算
+				LB = calcDistanceLB(LA, angle, Case);   //距離LBを計算
+				theta = 90 - abs(angle);                //回転する角度を計算
 				break;
 			case CASE_4: //真横
-				LB = LA * 1.4142; //距離LBを計算 LAの1/sin45°=(√2)倍
+				LB = LA * 1.4142;   //距離LBを計算 LAの1/sin45°=(√2)倍
 				// B = calcDistanceLB(A, angle, Case); //距離LBを計算
-				theta = 45; //真横なのでとりあえず右に45度回転させることとする
+				theta = 45;         //真横なのでとりあえず右に45度回転させることとする
 				break;
 			}
 			rotate(theta); //その場でthetaだけ回転
@@ -270,23 +270,23 @@ int main(int argc, char **argv)
 			break;
 		case ROTATE_STATE2: // 回転
 			switch (Case) {
-			case CASE_1: // 左上-右下のとき
+			case CASE_1:    // 左上-右下のとき
 				rotate(90);
 				break;
-			case CASE_3: // 右上-左下のとき
+			case CASE_3:    // 右上-左下のとき
 				rotate(-90);
 				break;
-			case CASE_4: // 真横のとき
+			case CASE_4:    // 真横のとき
 				rotate(-135);
 				break;
 			}
 			state = FORWARD_STATE2;
 			break;
 		case FORWARD_STATE2: // 前進その2
-			oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
+			oblique = topContoursInfo[0].oblique;   // 認識した物体を囲む長方形
 			// x = oblique.center.x;   // 認識した物体の画面内のx座標(0~239)
-			y = oblique.center.y;   // 認識した物体の画面内のy座標(0~269)
-			LA = calcDistanceLA(y);	// 距離LAを計算
+			y = oblique.center.y;                   // 認識した物体の画面内のy座標(0~269)
+			LA = calcDistanceLA(y);                 // 距離LAを計算
 			move(LA - PUSH_DOWN_TARGET);
 			state = AIMING_TARGET;
 			break;
@@ -300,15 +300,15 @@ int main(int argc, char **argv)
 			break;
 		case FORWARD_STATE3: // 前進その3
 			move(PUSH_DOWN_TARGET);
-			motor_stop(); // 停止
-			move(-PUSH_DOWN_TARGET); //前進したぶん後退
+			motor_stop();               // 停止
+			move(-PUSH_DOWN_TARGET);    //前進したぶん後退
             state = CONFIRMATION_STATE;
 			break;
 		case CONFIRMATION_STATE: // 後退・確認
 			if (circles->total < THRESHOULD_CIRCLES) {  // 的を倒したかの判定
-				state = END_STATE; //的を倒せた場合はEND_STATEへ
+				state = END_STATE;                      //的を倒せた場合はEND_STATEへ
 			} else {
-				state = AIMING_TARGET; //倒せなかった場合は再度的をしぼるところからやり直し
+				state = AIMING_TARGET;                  //倒せなかった場合は再度的をしぼるところからやり直し
 			}
 			break;
 		case END_STATE:
@@ -340,21 +340,21 @@ double calcDistanceLA(int y) {
 //ロボットの位置から長方形の長辺の垂直二等分上に引いた垂線の距離B[cm]を計算する関数
 double calcDistanceLB(double LA, double deg, int Case) {
 	double rad = fabs(deg) * M_PI / 180.0;
-	if (Case == CASE_1) { //長方形が左上-右下状態の場合
+	if (Case == CASE_1) {           //長方形が左上-右下状態の場合
 		return LA * cos(rad);
-	} else if (Case == CASE_3) { //長方形が左下-右上状態の場合
+	} else if (Case == CASE_3) {    //長方形が左下-右上状態の場合
 		return LA * sin(rad);
 	}
-	return 0; // その他の場合は0を返す
+	return 0;                       // その他の場合は0を返す
 }
 
 //指定した距離[cm]だけロボットを動かす関数（正の値なら前進、負の値なら後退）
 void move(double distance) {
-	double move_time = distance / PER_SECOND * 1000000;//移動時間[us]の計算
-	if (distance >= 0) motor(100, 100); //基本速度で前進
-	else motor(156, 156); //基本速度で後退
-	usleep(move_time);//計算した移動時間分だけスリープ
-	motor_stop(); //停止
+	double move_time = distance / PER_SECOND * 1000000; //移動時間[us]の計算
+	if (distance >= 0) motor(100, 100);                 //基本速度で前進
+	else motor(156, 156);                               //基本速度で後退
+	usleep(move_time);                                  //計算した移動時間分だけスリープ
+	motor_stop();                                       //停止
 }
 
 // 指定した角度deg°だけロボットをその場で右に回転する関数(引数は度数法表示で)
@@ -370,11 +370,11 @@ void rotate(double deg) {
 //長方形のCASEを判定する関数
 int judgeCase(contourInfo topContoursInfo[]) {
 	int Case = 0;
-	double yellowBox_width = topContoursInfo[0].oblique.size.width; //黄色の長方形のwidth
-	double yellowBox_height = topContoursInfo[0].oblique.size.height; //黄色の長方形のheight
-	double yellowBox_angle = topContoursInfo[0].oblique.angle; //黄色の長方形のheight
-	double greenBox_width = topContoursInfo[0].horizontal.width; //緑色の長方形のwidth
-	double greenBox_height = topContoursInfo[0].horizontal.height; //緑色の長方形のheight
+	double yellowBox_width = topContoursInfo[0].oblique.size.width;     //黄色の長方形のwidth
+	double yellowBox_height = topContoursInfo[0].oblique.size.height;   //黄色の長方形のheight
+	double yellowBox_angle = topContoursInfo[0].oblique.angle;          //黄色の長方形のheight
+	double greenBox_width = topContoursInfo[0].horizontal.width;        //緑色の長方形のwidth
+	double greenBox_height = topContoursInfo[0].horizontal.height;      //緑色の長方形のheight
 
 	//条件分岐を書く
 	if ((-5 <= yellowBox_angle && yellowBox_angle <= 0) || (-90 <= yellowBox_angle && yellowBox_angle <= -85)) { //真横 or 真正面
