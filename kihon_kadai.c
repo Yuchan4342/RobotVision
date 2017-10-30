@@ -207,7 +207,7 @@ int main(int argc, char **argv)
 		CvBox2D oblique;
 		switch (state) {
 		case SEARCHING_FOR_MARKER: // マーカーを探しているとき
-			if (topContoursInfo[0].area > 600) // マーカーが見つかった場合(長方形のサイズ850~920)
+			if (1000 > topContoursInfo[0].area && topContoursInfo[0].area > 600) // マーカーが見つかった場合(長方形のサイズ850~920)
 			{
 				motor_stop(); // 回転停止
 				t_start = -1;
@@ -239,11 +239,11 @@ int main(int argc, char **argv)
 			oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
 			angle = oblique.angle;
 			y = oblique.center.y;                 // 認識した物体の画面内のy座標(0~269)
-			Case = judgeCase(topContoursInfo);
-			LA = calcDistanceLA(y); //距離Aを計算
+			Case = judgeCase(topContoursInfo);    // マーカーの状態を判定する
+			LA = calcDistanceLA(y); //距離LAを計算
 			switch (Case) {
 			case CASE_1: //左上-右下
-				LB = calcDistanceLB(LA, angle, Case); //距離Bを計算
+				LB = calcDistanceLB(LA, angle, Case); //距離LBを計算
 				theta = angle;//回転する角度を計算
 				break;
 			case CASE_2: //真正面
@@ -251,12 +251,12 @@ int main(int argc, char **argv)
 				theta = 0;
 				break;
 			case CASE_3: //左下-右上
-				LB = calcDistanceLB(LA, angle, Case); //距離Bを計算
+				LB = calcDistanceLB(LA, angle, Case); //距離LBを計算
 				theta = 90 - abs(angle);//回転する角度を計算
 				break;
 			case CASE_4: //真横
-				LB = LA * 1.4142; //距離Bを計算 Aの1/sin45°=(√2)倍
-				// B = calcDistanceB(A, angle, Case); //距離Bを計算
+				LB = LA * 1.4142; //距離LBを計算 LAの1/sin45°=(√2)倍
+				// B = calcDistanceLB(A, angle, Case); //距離LBを計算
 				theta = 45; //真横なのでとりあえず右に45度回転させることとする
 				break;
 			}
@@ -264,17 +264,8 @@ int main(int argc, char **argv)
 			state = FORWARD_STATE1;
 			break;
 		case FORWARD_STATE1: // 前進その1
-			oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
-			/*
-			switch (Case) {
-			case CASE_1: // 左上-右下のとき
-			case CASE_3: // 左下-右上のとき
-			case CASE_4: // 真横のとき
-				move(LB);
-				break;
-			}
-			*/
-			move(LB);
+			// oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
+            move(LB);
 			state = ROTATE_STATE2;
 			break;
 		case ROTATE_STATE2: // 回転
@@ -295,23 +286,23 @@ int main(int argc, char **argv)
 			oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
 			// x = oblique.center.x;   // 認識した物体の画面内のx座標(0~239)
 			y = oblique.center.y;   // 認識した物体の画面内のy座標(0~269)
-			LA = calcDistanceLA(y);	// 距離Aを計算
-			move(LA - 15);
+			LA = calcDistanceLA(y);	// 距離LAを計算
+			move(LA - PUSH_DOWN_TARGET);
 			state = AIMING_TARGET;
 			break;
 		case AIMING_TARGET: // 的の狙いをしぼる
 			x = cvRound(p[0]);
-			y = cvRound(p[1]);
-			if (x < 155) motor(138, 118);      // 長方形が左にあるとき左に回転
-			else if (x > 165) motor(118, 138); // 長方形が右にあるとき右に回転
+			// y = cvRound(p[1]);
+			if (x < 155) motor(138, 118);      // 的が左にあるとき左に回転
+			else if (x > 165) motor(118, 138); // 的が右にあるとき右に回転
 			else //おおよそ正面にとらえた時
 				state = FORWARD_STATE3;
 			break;
 		case FORWARD_STATE3: // 前進その3
 			move(PUSH_DOWN_TARGET);
-			state = CONFIRMATION_STATE;
 			motor_stop(); // 停止
 			move(-PUSH_DOWN_TARGET); //前進したぶん後退
+            state = CONFIRMATION_STATE;
 			break;
 		case CONFIRMATION_STATE: // 後退・確認
 			if (circles->total < THRESHOULD_CIRCLES) {  // 的を倒したかの判定
