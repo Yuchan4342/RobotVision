@@ -265,6 +265,7 @@ int main(int argc, char **argv)
 			break;
 		case FORWARD_STATE1: // 前進その1
 			oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
+			/*
 			switch (Case) {
 			case CASE_1: // 左上-右下のとき
 			case CASE_3: // 左下-右上のとき
@@ -272,6 +273,8 @@ int main(int argc, char **argv)
 				move(LB);
 				break;
 			}
+			*/
+			move(LB);
 			state = ROTATE_STATE2;
 			break;
 		case ROTATE_STATE2: // 回転
