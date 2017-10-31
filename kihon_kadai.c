@@ -16,15 +16,17 @@
 #define MOTOR_DEFAULT_R 135 //右モータのデフォルト値（キャリブレーションに利用）
 #define CAMERA_INIT_V 62    //カメラサーボの垂直方向初期値
 #define CAMERA_INIT_H 91    //カメラサーボの水平方向初期値
+#define ANGLE_UNIT 10       //カメラの角度[°]を変更する際の基準単位
 
-#define PER_SECOND 16.04   // motor(100,100)による秒速 [cm/sec]
-#define ANG_V 55.05        // motor(100,156)のときの角速度 [°/sec]
+#define PER_SECOND 16.04    // motor(100,100)による秒速 [cm/sec]
+#define ANG_V 55.05         // motor(100,156)のときの角速度 [°/sec]
 
-#define CM_PER_PXS_Y 0.385     //1pxsあたりの実際の距離[cm/pxs]：y方向
-#define CM_PER_PXS_X 0.444     //1pxsあたりの実際の距離[cm/pxs]：x方向
-#define DIST_OUT_OF_RANGE 40.5 //カメラ範囲外からロボットまでの距離[cm]
-#define PUSH_DOWN_TARGET 15    //的を倒す時に前進する距離[cm]
-#define THRESHOULD_CIRCLES 10  //的が倒れたかどうかを判定する時に使う、円の個数の閾値
+#define CM_PER_PXS_Y 0.385              //1pxsあたりの実際の距離[cm/pxs]：y方向
+#define CM_PER_PXS_X 0.444              //1pxsあたりの実際の距離[cm/pxs]：x方向
+#define CAMERA_RANGE_LOWER_LIMIT 40.5   //カメラの認識範囲の下限（ロボットからの距離に相当）[cm]
+#define CAMERA_RANGE_UPPER_LIMIT 152.5  //カメラの認識範囲の上限（ロボットからの距離に相当）[cm]
+#define PUSH_DOWN_TARGET 15             //的を倒す時に前進する距離[cm]
+#define THRESHOULD_CIRCLES 10           //的が倒れたかどうかを判定する時に使う、円の個数の閾値
 
 #define SEARCHING_FOR_MARKER 0    // 探している時
 #define FOUND_MARKER 1 	          // 探している時
@@ -79,7 +81,7 @@ int main(int argc, char **argv)
 	IplImage** frames[] = {&frame, &frameHSV};
 	IplImage** framesPT[] = {&framePT, &framePTHSV};
 	contourInfo topContoursInfo[CONTOURS];
-	int i, key, state = SEARCHING_FOR_MARKER; // state: 状態を表す変数
+	int i, key, state = SEARCHING_FOR_MARKER, misscount = 0; // state : 状態を表す変数, misscount : マーカーを見失った回数
 	float *p = NULL;
 	int colors[RGB] = {R, G, B}, ci = 0; //ここで倒す順番の指定をする
 	time_t t_start = -1, t_stop = -1;
@@ -186,18 +188,21 @@ int main(int argc, char **argv)
 		cvWarpPerspective (frame, framePT, map_matrix, CV_INTER_LINEAR + CV_WARP_FILL_OUTLIERS, cvScalarAll (100));
 
 		// ウィンドウに表示
-		cvCvtColor(framePT, framePTHSV, CV_RGB2HSV);
+		cvCvtColor(framePT, framePTHSV, CV_RGB2HSV); //miscountによって分ける必要はある？ない？
 		cvShowImage("src", frame);
 		cvShowImage("dst", framePT);
 
 		////////////////////////////////////////////////////////////////////////////////
 		// 指定した色空間内の色(赤、青、緑)のみマスクする
-		// GetMaskHSV(framePT, mask, minH, maxH, minS, maxS, minV, maxV);
-		// color = B; //ここでRGBの指定ができるようにした
-		GetMaskHSV(framePT, mask, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
+        if(misscount > 0){
+            GetMaskHSV(frame, mask, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
+            GetLargestContour(frame, mask, contour, topContoursInfo);
+        } else {
+            GetMaskHSV(framePT, mask, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
+            GetLargestContour(framePT, mask, contour, topContoursInfo);
+        }
 		////////////////////////////////////////////////////////////////////////////////
-
-		GetLargestContour(framePT, mask, contour, topContoursInfo);
+		
 		cvShowImage("contour", contour);
 		key = cvWaitKey(1);
 		////
@@ -209,8 +214,8 @@ int main(int argc, char **argv)
 		case SEARCHING_FOR_MARKER: // マーカーを探しているとき
 			if (1000 > topContoursInfo[0].area && topContoursInfo[0].area > 600) // マーカーが見つかった場合(長方形のサイズ850~920)
 			{
-				motor_stop(); // 回転停止
-				t_start = -1;
+				motor_stop();                       // 回転停止
+				t_start = -1;                       // 時間計測関係の変数を初期化
 				t_stop = -1;
 				state = FOUND_MARKER;
 			}
@@ -221,7 +226,8 @@ int main(int argc, char **argv)
 					motor(100, 156);    // 右(時計)周りに回転
 				else // 1周回ってマーカーが見つからない場合
 				{
-					move(80);           // 80cm前進
+                    misscount++;
+                    camera_vertical(CAMERA_INIT_V + ANGLE_UNIT * misscount);// マーカーが見つからなかった場合、ANGLE_UNIT * misscountずつカメラの角度をあげて再試行
 					t_start = -1;
 				}
 			}
@@ -229,11 +235,18 @@ int main(int argc, char **argv)
 		case FOUND_MARKER: // マーカーが画面内に入ったとき, 正面(カメラの中央)に入るように向きを変える
 			oblique = topContoursInfo[0].oblique;   // 認識した物体を囲む長方形
 			x = oblique.center.x;                   // 認識した物体の画面内のx座標(0~239)
-			y = oblique.center.y;                   // 認識した物体の画面内のy座標(0~269)
+			// y = oblique.center.y;                   // 認識した物体の画面内のy座標(0~269)
 			if (x < 110) motor(138, 118);           // 長方形が左にあるとき左に回転
 			else if (x > 130) motor(118, 138);      // 長方形が右にあるとき右に回転
 			else                                    //おおよそ正面にとらえた時
-				state = ROTATE_STATE1;
+                if(misscount > 0){
+                    camera_vertical(CAMERA_INIT_V);     // 垂直方向のカメラ角度を初期値に
+                    move(CAMERA_RANGE_UPPER_LIMIT - CAMERA_RANGE_LOWER_LIMIT);
+                    misscount = 0;                      // マーカーを見失った回数を初期化
+                    state = SEARCHING_FOR_MARKER;
+                } else {
+                    state = ROTATE_STATE1;
+                }
 			break;
 		case ROTATE_STATE1: // 条件に応じて回転
 			oblique = topContoursInfo[0].oblique;   // 認識した物体を囲む長方形
@@ -334,7 +347,7 @@ int main(int argc, char **argv)
 
 //ロボットから標的までの直線距離LA[cm]を計算する関数
 double calcDistanceLA(int y) {
-	return (269 - y) * CM_PER_PXS_Y + DIST_OUT_OF_RANGE;
+	return (269 - y) * CM_PER_PXS_Y + CAMERA_RANGE_LOWER_LIMIT;
 }
 
 //ロボットの位置から長方形の長辺の垂直二等分上に引いた垂線の距離B[cm]を計算する関数
