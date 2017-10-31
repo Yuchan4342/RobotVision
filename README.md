@@ -1,6 +1,9 @@
 # RobotVision_2017F
 Experiment C using OpenCV in October 2017
 
+## Requirements
+OpenCV
+
 ## Usage
 1. Please use following command to compile:
 
@@ -9,3 +12,7 @@ Experiment C using OpenCV in October 2017
 2. Use following command to run. Argument number means a camera this program uses.
 
 `$ ./kihon_kadai 0`
+
+## Author
+Yuchan4342
+Tomochi
