@@ -77,6 +77,7 @@ int main(int argc, char **argv)
 	CvSeq *circles = NULL;
 
 	IplImage* mask;      // 指定値によるmask (１チャネル)
+	IplImage* maskPT;      // 指定値による透視変換後画像のmask (１チャネル)
 	IplImage* contour;   // GetLargestContour() の結果
 	IplImage** frames[] = {&frame, &frameHSV};
 	IplImage** framesPT[] = {&framePT, &framePTHSV};
@@ -112,12 +113,6 @@ int main(int argc, char **argv)
 	rgb_HSV[B].minV = 50, rgb_HSV[B].maxV = 255;
 
 	////////////////////////////////////////////////////////////////////////////////
-	/*
-	// 青系のHSV色．各自チューニングすること
-	uchar minH = 0, maxH = 20;
-	uchar minS = 70, maxS = 220;
-	uchar minV =  50, maxV = 255;
-	*/
 	CvMat *map_matrix;
 	CvPoint2D32f src_pnt[4], dst_pnt[4];
 
@@ -148,7 +143,8 @@ int main(int argc, char **argv)
 	framePT = cvCreateImage(cvSize(240, 270), IPL_DEPTH_8U, 3);
 	framePTHSV = cvCreateImage(cvGetSize(framePT), IPL_DEPTH_8U, 3);
 	frameGray = cvCreateImage (cvGetSize(frame), IPL_DEPTH_8U, 1);
-	mask = cvCreateImage(cvGetSize(framePT), IPL_DEPTH_8U, 1);
+	mask = cvCreateImage(cvGetSize(frame), IPL_DEPTH_8U, 1);
+	maskPT = cvCreateImage(cvGetSize(framePT), IPL_DEPTH_8U, 1);
 	contour = cvCreateImage(cvGetSize(framePT), IPL_DEPTH_8U, 3);
 
 	cvNamedWindow("src", CV_WINDOW_AUTOSIZE);
@@ -167,6 +163,9 @@ int main(int argc, char **argv)
 		cvCvtColor(frame, frameHSV, CV_RGB2HSV);
 		cvCvtColor(frame, frameGray, CV_RGB2GRAY);
 
+		// 透視変換
+		cvWarpPerspective (frame, framePT, map_matrix, CV_INTER_LINEAR + CV_WARP_FILL_OUTLIERS, cvScalarAll (100));
+
 		// Hough変換のための前処理
 		cvSmooth (frameGray, frameGray, CV_GAUSSIAN, 11, 0, 0, 0);
 		storage = cvCreateMemStorage (0);
@@ -183,26 +182,27 @@ int main(int argc, char **argv)
 			          cvRound (p[2]), CV_RGB (255, 0, 0), 6 - 2 * i, 8, 0);     //円の描画
 			// printf("( x , y ) : ( %d , %d )\n", cvRound (p[0]), cvRound (p[1])); //検出した円の中心座標(x,y)を表示
 		}
-
-		// 透視変換
-		cvWarpPerspective (frame, framePT, map_matrix, CV_INTER_LINEAR + CV_WARP_FILL_OUTLIERS, cvScalarAll (100));
-
+		
 		// ウィンドウに表示
-		cvCvtColor(framePT, framePTHSV, CV_RGB2HSV); //miscountによって分ける必要はある？ない？
+		cvCvtColor(framePT, framePTHSV, CV_RGB2HSV); // miscountによって分ける必要はある？ない？
 		cvShowImage("src", frame);
 		cvShowImage("dst", framePT);
 
 		////////////////////////////////////////////////////////////////////////////////
 		// 指定した色空間内の色(赤、青、緑)のみマスクする
-        if(misscount > 0){
-            GetMaskHSV(frame, mask, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
-            GetLargestContour(frame, mask, contour, topContoursInfo);
-        } else {
-            GetMaskHSV(framePT, mask, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
-            GetLargestContour(framePT, mask, contour, topContoursInfo);
-        }
+		if (misscount > 0) {
+			// このパターンだとmaskとcontourのサイズが異なり、エラーが起きる。
+			// GetMaskHSV(frame, mask, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
+			// GetLargestContour(frame, mask, contour, topContoursInfo);
+			// このパターンだとうまくいく。	
+			GetMaskHSV(framePT, maskPT, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
+			GetLargestContour(framePT, maskPT, contour, topContoursInfo);
+		} else {
+			GetMaskHSV(framePT, maskPT, rgb_HSV[colors[ci]].minH, rgb_HSV[colors[ci]].maxH, rgb_HSV[colors[ci]].minS, rgb_HSV[colors[ci]].maxS, rgb_HSV[colors[ci]].minV, rgb_HSV[colors[ci]].maxV);
+			GetLargestContour(framePT, maskPT, contour, topContoursInfo);
+		}
 		////////////////////////////////////////////////////////////////////////////////
-		
+
 		cvShowImage("contour", contour);
 		key = cvWaitKey(1);
 		////
@@ -226,8 +226,8 @@ int main(int argc, char **argv)
 					motor(100, 156);    // 右(時計)周りに回転
 				else // 1周回ってマーカーが見つからない場合
 				{
-                    misscount++;
-                    camera_vertical(CAMERA_INIT_V + ANGLE_UNIT * misscount);// マーカーが見つからなかった場合、ANGLE_UNIT * misscountずつカメラの角度をあげて再試行
+					misscount++;
+					camera_vertical(CAMERA_INIT_V + ANGLE_UNIT * misscount); // マーカーが見つからなかった場合、ANGLE_UNIT * misscountずつカメラの角度をあげて再試行
 					t_start = -1;
 				}
 			}
@@ -239,14 +239,14 @@ int main(int argc, char **argv)
 			if (x < 110) motor(138, 118);           // 長方形が左にあるとき左に回転
 			else if (x > 130) motor(118, 138);      // 長方形が右にあるとき右に回転
 			else                                    //おおよそ正面にとらえた時
-                if(misscount > 0){
-                    camera_vertical(CAMERA_INIT_V);     // 垂直方向のカメラ角度を初期値に
-                    move(CAMERA_RANGE_UPPER_LIMIT - CAMERA_RANGE_LOWER_LIMIT);
-                    misscount = 0;                      // マーカーを見失った回数を初期化
-                    state = SEARCHING_FOR_MARKER;
-                } else {
-                    state = ROTATE_STATE1;
-                }
+				if (misscount > 0) {
+					camera_vertical(CAMERA_INIT_V);     // 垂直方向のカメラ角度を初期値に
+					move(CAMERA_RANGE_UPPER_LIMIT - CAMERA_RANGE_LOWER_LIMIT);
+					misscount = 0;                      // マーカーを見失った回数を初期化
+					state = SEARCHING_FOR_MARKER;
+				} else {
+					state = ROTATE_STATE1;
+				}
 			break;
 		case ROTATE_STATE1: // 条件に応じて回転
 			oblique = topContoursInfo[0].oblique;   // 認識した物体を囲む長方形
@@ -278,7 +278,7 @@ int main(int argc, char **argv)
 			break;
 		case FORWARD_STATE1: // 前進その1
 			// oblique = topContoursInfo[0].oblique; // 認識した物体を囲む長方形
-            move(LB);
+			move(LB);
 			state = ROTATE_STATE2;
 			break;
 		case ROTATE_STATE2: // 回転
@@ -315,7 +315,7 @@ int main(int argc, char **argv)
 			move(PUSH_DOWN_TARGET);
 			motor_stop();               // 停止
 			move(-PUSH_DOWN_TARGET);    //前進したぶん後退
-            state = CONFIRMATION_STATE;
+			state = CONFIRMATION_STATE;
 			break;
 		case CONFIRMATION_STATE: // 後退・確認
 			if (circles->total < THRESHOULD_CIRCLES) {  // 的を倒したかの判定
@@ -340,6 +340,7 @@ int main(int argc, char **argv)
 	cvReleaseImage(&frameHSV);
 	cvReleaseImage(&framePTHSV);
 	cvReleaseImage(&mask);
+	cvReleaseImage(&maskPT);
 	cvReleaseImage(&contour);
 	cvReleaseCapture(&capture);
 	return 0;
