@@ -399,7 +399,7 @@ int judgeCase(contourInfo topContoursInfo[]) {
 	int Case = 0;
 	double yellowBox_width = topContoursInfo[0].oblique.size.width;     //黄色の長方形のwidth
 	double yellowBox_height = topContoursInfo[0].oblique.size.height;   //黄色の長方形のheight
-	double yellowBox_angle = topContoursInfo[0].oblique.angle;          //黄色の長方形のheight
+	double yellowBox_angle = topContoursInfo[0].oblique.angle;          //黄色の長方形のangle
 	double greenBox_width = topContoursInfo[0].horizontal.width;        //緑色の長方形のwidth
 	double greenBox_height = topContoursInfo[0].horizontal.height;      //緑色の長方形のheight
 
